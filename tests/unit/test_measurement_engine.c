@@ -147,6 +147,11 @@ static void fake_port_handle_result(measurement_engine_port_t* port,
                                     const measurement_engine_result_t* result) {
   fake_port_state_t* state = (fake_port_state_t*)port->context;
   ++state->handle_result_calls;
+  // Postprocessing must finish before a complete snapshot is published.
+  if (g_sweep_generation_calls != 0) {
+    fputs("snapshot published before result processing\n", stderr);
+    abort();
+  }
   if (result != NULL) {
     state->last_result = *result;
   }

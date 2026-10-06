@@ -266,7 +266,8 @@ VNA_SHELL_FUNCTION(cmd_scan) {
 
   if (sweep_ch & (SWEEP_CH0_MEASURE | SWEEP_CH1_MEASURE)) {
     app_measurement_reset();
-    app_measurement_sweep(false, sweep_ch);
+    if (app_measurement_sweep(false, sweep_ch))
+      sweep_service_increment_generation();
   }
   pause_sweep();
   
@@ -486,8 +487,8 @@ VNA_SHELL_FUNCTION(cmd_data) {
         sweep_service_wait_for_generation();
     while (true) {
       if (!sweep_service_snapshot_acquire((uint8_t)sel, &snapshot)) {
-        chThdSleepMilliseconds(1);
-        continue;
+        shell_printf("No complete sweep available" VNA_SHELL_NEWLINE_STR);
+        return;
       }
       for (uint16_t i = 0; i < snapshot.points; i++) {
         if (!shell_printf("%f %f" VNA_SHELL_NEWLINE_STR, snapshot.data[i][0], snapshot.data[i][1])) break;

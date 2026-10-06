@@ -17,10 +17,13 @@ functions without requiring any STM32 hardware.
   - `test_display_presenter.c`: presenter wrappers that forward drawing calls to the active API
   - `test_si5351.c`: production RF driver with a fake I2C register bank; verifies
     ZeeTK frequency generation from 600 Hz through harmonic transitions to
-    2.7 GHz, codec clock/gain, output drive, and safe profile switching
+    2.7 GHz, codec clock/gain, output drive, and safe profile switching; runs
+    for H and H4, including low-frequency cache collisions and threshold bounds
   - `test_startup_timing.py`: compiles the production timing functions with a
     simulated clock; checks capture and PLL waits across rollover, sweep-start
     delay scope, ADC startup timeout, and configuration/generator startup order
+  - `test_sweep_snapshot.py`: exercises production snapshot functions with
+    controlled interleavings, partial sweeps, reader handoff and timer rollover
 - `tests/stubs/` provides lightweight stand-ins for headers that normally come
   from ChibiOS/HAL so that host builds can compile firmware files.
 
@@ -33,6 +36,15 @@ make test
 The `test` target builds and executes the C suites, then runs the startup/timing
 harness using Python 3 and the host C compiler. Override `HOST_PYTHON` or
 `HOST_CC` if needed. Failures are reported with descriptive messages.
+
+For memory/undefined-behavior checks, use a separate output directory and make
+sanitizer errors fatal (including in the Python-driven C harnesses):
+
+```sh
+make test TEST_BUILD_DIR=build/tests-sanitized \
+  HOST_CC='gcc -fsanitize=address,undefined -fno-sanitize-recover=all' \
+  HOST_CFLAGS='-std=c11 -Wall -Wextra -O1 -g -fno-omit-frame-pointer'
+```
 
 ## Extending
 

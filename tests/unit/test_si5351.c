@@ -135,6 +135,27 @@ int main(void) {
   si5351_set_frequency(50000000, SI5351_CLK_DRIVE_STRENGTH_AUTO);
   assert(left_gain == 0 && right_gain == 0);
   assert(fabs(output_frequency(1) - 50000000) < 50.0);
+  for (unsigned mode = 0; mode < SI5351_BAND_COUNT; ++mode) {
+    si5351_set_band_mode(mode);
+    si5351_set_frequency(64000, SI5351_CLK_DRIVE_STRENGTH_AUTO);
+    assert(si5351_get_frequency() == 64000);
+    si5351_set_frequency(1024000, SI5351_CLK_DRIVE_STRENGTH_AUTO);
+    assert(fabs(output_frequency(1) - 1024000) < 1.0);
+    si5351_set_frequency(64000, SI5351_CLK_DRIVE_STRENGTH_AUTO);
+    si5351_set_power(SI5351_CLK_DRIVE_STRENGTH_8MA);
+    assert(si5351_get_frequency() == 64000);
+    assert(fabs(output_frequency(1) - 64000) < 1.0);
+    const uint32_t thresholds[] = {600, 100000000, FREQUENCY_THRESHOLD, FREQUENCY_MAX};
+    for (unsigned i = 0; i < ARRAY_COUNT(thresholds); ++i) {
+      config._harmonic_freq_threshold = thresholds[i];
+      si5351_set_band_mode(mode);
+      assert(si5351_get_harmonic_lvl(UINT32_MAX) < 16);
+      si5351_set_frequency(FREQUENCY_MAX, SI5351_CLK_DRIVE_STRENGTH_AUTO);
+      if (thresholds[i] <= 100000000)
+        assert(fabs(output_frequency(1) * 11 - FREQUENCY_MAX) < 50.0);
+    }
+    config._harmonic_freq_threshold = FREQUENCY_THRESHOLD;
+  }
   puts("si5351: ZeeTK frequencies, gains, drive and profile switching passed");
   return 0;
 }

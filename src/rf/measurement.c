@@ -74,13 +74,13 @@ void measurement_engine_tick(measurement_engine_t* engine) {
   const bool completed =
       measurement_pipeline_execute(&engine->pipeline, request.break_on_operation, mask);
   sweep_service_end_measurement();
-  if (completed) {
-    sweep_service_increment_generation();
-    measurement_engine_publish(engine, EVENT_SWEEP_COMPLETED, &mask);
-  }
-
   if (engine->port != NULL && engine->port->handle_result != NULL) {
     measurement_engine_result_t result = {.sweep_mask = mask, .completed = completed};
     engine->port->handle_result(engine->port, &result);
+  }
+  // Publish only after the final slice and any time-domain transformation.
+  if (completed) {
+    sweep_service_increment_generation();
+    measurement_engine_publish(engine, EVENT_SWEEP_COMPLETED, &mask);
   }
 }

@@ -368,7 +368,8 @@ TEST_SUITES := $(TEST_BUILD_DIR)/test_common $(TEST_BUILD_DIR)/test_vna_math \
                $(TEST_BUILD_DIR)/test_legacy_measure $(TEST_BUILD_DIR)/test_event_bus \
                $(TEST_BUILD_DIR)/test_scheduler $(TEST_BUILD_DIR)/test_measurement_engine \
                $(TEST_BUILD_DIR)/test_shell_service $(TEST_BUILD_DIR)/test_display_presenter \
-               $(TEST_BUILD_DIR)/test_accuracy_analysis $(TEST_BUILD_DIR)/test_si5351
+               $(TEST_BUILD_DIR)/test_accuracy_analysis $(TEST_BUILD_DIR)/test_si5351 \
+               $(TEST_BUILD_DIR)/test_si5351_h4
 
 $(TEST_BUILD_DIR):
 	@mkdir -p $@
@@ -415,6 +416,10 @@ $(TEST_BUILD_DIR)/test_si5351: tests/unit/test_si5351.c src/driver/si5351.c \
 	$(HOST_CC) $(HOST_CFLAGS) -Itests/stubs/si5351 -Itests/stubs -Iinclude -Isrc -o $@ $(filter %.c,$^) $(HOST_LDFLAGS)
 
 .PHONY: test tests
+$(TEST_BUILD_DIR)/test_si5351_h4: tests/unit/test_si5351.c src/driver/si5351.c \
+        include/driver/si5351.h tests/stubs/si5351/nanovna.h | $(TEST_BUILD_DIR)
+	$(HOST_CC) $(HOST_CFLAGS) -DNANOVNA_F303 -Itests/stubs/si5351 -Itests/stubs -Iinclude -Isrc -o $@ $(filter %.c,$^) $(HOST_LDFLAGS)
+
 tests: $(TEST_SUITES)
 
 test: tests
@@ -424,6 +429,7 @@ test: tests
 		"$$suite"; \
 	done
 	HOST_CC="$(HOST_CC)" $(HOST_PYTHON) tests/unit/test_startup_timing.py
+	HOST_CC="$(HOST_CC)" $(HOST_PYTHON) tests/unit/test_sweep_snapshot.py
 
 # Define ChibiOS sources and objects (handle potential ./ prefix)
 CHIBIOS_SOURCES := $(filter third_party/ChibiOS/% ./third_party/ChibiOS/%, $(CSRC))

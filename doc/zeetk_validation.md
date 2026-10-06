@@ -59,6 +59,25 @@ STM32 ADC peripheral.
 
 ## Bench validation still required
 
+The comparative-audit fixes also keep cached RF frequencies in requested Hz,
+bound harmonic lookup to the selected table (the last band covers requests
+above its nominal threshold), and remove an undefined signed shift from the
+F072 software square root. Tests cover the 64 kHz -> 1.024 MHz cache collision,
+power changes and threshold extremes across every profile.
+
+USB `data` snapshots now wait for a complete sweep, including postprocessing.
+A pending reader receives that completed buffer before the next sweep starts;
+the sweep thread sleeps while the reader holds it so the lower-priority shell
+can finish. This uses the existing single buffer. Incomplete/failed sweeps are
+not published. If no complete sweep is available within the acquisition timeout,
+`data` reports `No complete sweep available` rather than retrying indefinitely.
+Explicit successful `scan` commands also publish their completed measurements.
+SD imports use the same writer protection and publish only successful loads.
+Only the shell is a snapshot consumer; this is not a multi-reader queue.
+
+On hardware, also test repeated `data` commands during continuous sweeps,
+paused/partial sweeps, time-domain display, and a slow or disconnected USB host.
+
 1. On the matching ZK board, choose `System -> Device -> More -> Mode -> ZeeTK`,
    save configuration, power-cycle, and confirm the selection persists.
 2. Select automatic calibration power and collect a fresh open/short/load/thru
@@ -80,8 +99,8 @@ Audit date: 2026-10-06. RF settings match 1.2.50; these items are deferred:
   capture cycles and PLL-lock handling; compare effective settling and bench
   results before adopting these constants.
 - **Synthesizer arithmetic:** 1.2.50 scales PLL/multisynth calculations before
-  fractional approximation and keeps cached frequency in unscaled Hz. Review
-  precision and low-frequency cache behavior separately across all profiles.
+  fractional approximation. The unscaled frequency-cache correction is now
+  included; the wider precision rewrite remains deferred.
 - **Remaining startup comparisons:** ADC readiness and initialization ordering
   are addressed above. NanoVNA-X already initializes its display late and
   starts codec clocks before slave I2S. Any further vendor LCD/codec delay

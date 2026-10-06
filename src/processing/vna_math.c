@@ -565,7 +565,8 @@ float vna_sqrtf(float x) {
       q += ((1.0f + 1e-30f) > 1.0f) ? 2 : (q & 1);
   }
   ix = (q >> 1) + 0x3f000000;
-  ix += (m << 23);
+  // m can be negative for inputs below one; unsigned shifting is defined.
+  ix = (int32_t)((uint32_t)ix + ((uint32_t)m << 23));
   u.i = ix;
   return u.f;
 }

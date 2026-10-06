@@ -462,6 +462,7 @@ static const band_strategy_t* band_s;
 /*
  * Frequency generation divide on band
  */
+static uint16_t band_count;
 // Mode for H board v3.3 and SI5351 installed
 CONST_BAND band_strategy_t band_strategy_33H_SI5351[] = {
     {0U, 0, {0}, 0, 0, -1, -1, -1, -1, 1}, // 0
@@ -1018,7 +1019,18 @@ void si5351_set_band_mode(uint16_t t) {
 #endif
       band_strategy_ZEETK
   };
-  band_s = bs[t < ARRAY_COUNT(bs) ? t : SI5351_BAND_SI5351];
+  static const uint16_t counts[] = {
+#if defined(NANOVNA_F303)
+      ARRAY_COUNT(band_strategy_H4_SI5351),
+#else
+      ARRAY_COUNT(band_strategy_33H_SI5351),
+#endif
+      ARRAY_COUNT(band_strategy_36H_MS5351), ARRAY_COUNT(band_strategy_SWC5351),
+      ARRAY_COUNT(band_strategy_ZEETK)
+  };
+  t = t < ARRAY_COUNT(bs) ? t : SI5351_BAND_SI5351;
+  band_s = bs[t];
+  band_count = counts[t];
   // A profile switch must reprogram PLLs and codec gain even at the same frequency.
   // The cached band index also belongs to the old (possibly longer) table.
   si5351_reset_cache();
@@ -1027,7 +1039,9 @@ void si5351_set_band_mode(uint16_t t) {
 uint32_t si5351_get_harmonic_lvl(uint32_t freq) {
   uint16_t i;
   const uint32_t threshold = clamp_harmonic_threshold(config._harmonic_freq_threshold);
-  for (i = 0;; i++) {
+  // The last band covers frequencies above its nominal threshold as well.
+  // A user-adjustable threshold must never let the lookup leave the table.
+  for (i = 0; i + 1U < band_count; i++) {
     uint32_t f = band_s[i].freq;
     if (f < 20) {
       uint64_t scaled = (uint64_t)f * threshold;
@@ -1051,6 +1065,7 @@ uint32_t si5351_get_harmonic_lvl(uint32_t freq) {
 #define AUDIO_CODEC_CHANNEL 2
 
 int si5351_set_frequency(uint32_t freq, uint8_t drive_strength) {
+  const uint32_t requested_freq = freq;
   uint8_t band;
   int delay = 0;
   if (freq == 0)
@@ -1088,7 +1103,7 @@ int si5351_set_frequency(uint32_t freq, uint8_t drive_strength) {
     current_power = drive_strength;
   }
 
-  if (freq == current_freq)
+  if (requested_freq == current_freq && band == current_band)
     return DELAY_CHANNEL_CHANGE;
 
   if (current_band != band) {
@@ -1197,6 +1212,6 @@ int si5351_set_frequency(uint32_t freq, uint8_t drive_strength) {
     current_band = band;
     delay = DELAY_BANDCHANGE;
   }
-  current_freq = freq;
+  current_freq = requested_freq;
   return delay;
 }

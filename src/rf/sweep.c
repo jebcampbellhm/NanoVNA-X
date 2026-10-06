@@ -51,6 +51,9 @@ static int16_t dump_selection = 0;
 static volatile bool sweep_in_progress = false;
 static volatile bool sweep_copy_in_progress = false;
 static volatile uint32_t sweep_generation = 0;
+static bool sweep_snapshot_valid = false;
+static bool sweep_snapshot_pending = false;
+static uint16_t sweep_snapshot_points = 0;
 static uint16_t p_sweep = 0;
 static uint8_t sweep_state_flags = 0;
 static volatile bool sweep_cancel_request = false;
@@ -271,6 +274,9 @@ void sweep_service_init(event_bus_t* bus) {
   sweep_in_progress = false;
   sweep_copy_in_progress = false;
   sweep_generation = 0;
+  sweep_snapshot_valid = false;
+  sweep_snapshot_pending = false;
+  sweep_snapshot_points = 0;
   sweep_reset_progress();
   sweep_state_flags = 0;
   sweep_cancel_request = false;
@@ -296,15 +302,24 @@ void sweep_service_wait_for_copy_release(void) {
     if (!busy) {
       break;
     }
-    chThdYield();
+    // The USB shell may have lower priority; yielding cannot let it release.
+    chThdSleepMilliseconds(1);
   }
 }
 
 void sweep_service_begin_measurement(void) {
-  osalSysLock();
-  sweep_in_progress = true;
-  sweep_cancel_request = false;
-  osalSysUnlock();
+  while (true) {
+    osalSysLock();
+    if (!sweep_copy_in_progress && !(sweep_snapshot_pending && sweep_snapshot_valid)) {
+      sweep_in_progress = true;
+      sweep_snapshot_valid = false;
+      sweep_cancel_request = false;
+      osalSysUnlock();
+      return;
+    }
+    osalSysUnlock();
+    chThdSleepMilliseconds(1);
+  }
 }
 
 void sweep_service_end_measurement(void) {
@@ -316,6 +331,8 @@ void sweep_service_end_measurement(void) {
 uint32_t sweep_service_increment_generation(void) {
   osalSysLock();
   uint32_t generation = ++sweep_generation;
+  sweep_snapshot_points = sweep_points;
+  sweep_snapshot_valid = true;
   osalSysUnlock();
   return generation;
 }
@@ -346,14 +363,18 @@ bool sweep_service_snapshot_acquire(uint8_t channel, sweep_service_snapshot_t* s
   }
   systime_t start_time = chVTGetSystemTimeX();
   systime_t timeout = MS2ST(2000); // 2 second timeout to prevent infinite wait
+  osalSysLock();
+  sweep_snapshot_pending = true;
+  osalSysUnlock();
   
   while (true) {
     osalSysLock();
-    bool busy = sweep_in_progress || sweep_copy_in_progress;
+    bool busy = sweep_in_progress || sweep_copy_in_progress || !sweep_snapshot_valid;
     if (!busy) {
       sweep_copy_in_progress = true;
+      sweep_snapshot_pending = false;
       snapshot->generation = sweep_generation;
-      snapshot->points = sweep_points;
+      snapshot->points = sweep_snapshot_points;
       snapshot->data = measured[channel];
       osalSysUnlock();
       return true;
@@ -362,6 +383,9 @@ bool sweep_service_snapshot_acquire(uint8_t channel, sweep_service_snapshot_t* s
     
     // Check for timeout
     if (chVTGetSystemTimeX() - start_time >= timeout) {
+      osalSysLock();
+      sweep_snapshot_pending = false;
+      osalSysUnlock();
       return false; // Timeout occurred, unable to acquire snapshot
     }
     
@@ -691,8 +715,7 @@ bool app_measurement_sweep(bool break_on_operation, uint16_t mask) {
      ctx.offset = vna_expf(s21_offset * (logf(10.0f) / 20.0f));
   }
   
-  sweep_in_progress = true;
-  sweep_service_wait_for_copy_release();
+  sweep_service_begin_measurement();
   
   if (p_sweep >= sweep_points || !break_on_operation) {
     sweep_reset_progress();
