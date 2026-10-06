@@ -57,40 +57,60 @@ static double output_frequency(unsigned channel) {
 }
 
 static void check_frequency(uint32_t frequency, unsigned harmonic,
-                            unsigned offset_harmonic, unsigned gain, unsigned drive) {
+                            unsigned offset_harmonic, unsigned gain, unsigned drive, unsigned lo_drive) {
   si5351_set_frequency(frequency, SI5351_CLK_DRIVE_STRENGTH_AUTO);
   assert(fabs(output_frequency(1) * harmonic - frequency) < 50.0);
   assert(fabs(output_frequency(0) * offset_harmonic - (frequency + IF_OFFSET)) < 50.0);
   assert(fabs(output_frequency(2) - AUDIO_CLOCK_REF) < 5.0);
   assert(left_gain == gain && right_gain == gain);
-  assert((registers[16] & 3) == drive);
+  assert((registers[16] & 3) == lo_drive);
   assert((registers[17] & 3) == drive);
 }
 
 int main(void) {
   si5351_set_band_mode(SI5351_BAND_ZEETK);
-  check_frequency(600, 1, 1, 0, SI5351_CLK_DRIVE_STRENGTH_2MA);
-  check_frequency(31999, 1, 1, 0, SI5351_CLK_DRIVE_STRENGTH_2MA);
-  check_frequency(32000, 1, 1, 5, SI5351_CLK_DRIVE_STRENGTH_6MA);
-  check_frequency(145000000, 1, 1, 5, SI5351_CLK_DRIVE_STRENGTH_6MA);
-  check_frequency(145000001, 1, 1, 5, SI5351_CLK_DRIVE_STRENGTH_6MA);
-  check_frequency(FREQUENCY_THRESHOLD, 1, 1, 5, SI5351_CLK_DRIVE_STRENGTH_6MA);
-  check_frequency(FREQUENCY_THRESHOLD + 1, 3, 5, 30, SI5351_CLK_DRIVE_STRENGTH_6MA);
-  check_frequency(588000000, 3, 5, 30, SI5351_CLK_DRIVE_STRENGTH_6MA);
-  check_frequency(588000001, 3, 5, 40, SI5351_CLK_DRIVE_STRENGTH_6MA);
-  check_frequency(3 * FREQUENCY_THRESHOLD, 3, 5, 40, SI5351_CLK_DRIVE_STRENGTH_6MA);
-  // Divider stays at four here, but ZeeTK drive must change from 6 to 8 mA.
-  check_frequency(3 * FREQUENCY_THRESHOLD + 1, 5, 7, 50, SI5351_CLK_DRIVE_STRENGTH_8MA);
-  check_frequency(5 * FREQUENCY_THRESHOLD + 1, 7, 9, 50, SI5351_CLK_DRIVE_STRENGTH_8MA);
-  check_frequency(7 * FREQUENCY_THRESHOLD + 1, 9, 11, 50, SI5351_CLK_DRIVE_STRENGTH_8MA);
-  check_frequency(FREQUENCY_MAX, 9, 11, 50, SI5351_CLK_DRIVE_STRENGTH_8MA);
+  static const struct {
+    uint32_t frequency;
+    unsigned harmonic, offset_harmonic, gain, drive, lo_drive;
+  } cases[] = {
+      {600, 1, 1, 0, 0, 0},
+      {31999, 1, 1, 0, 0, 0},
+      {32000, 1, 1, 0, 2, 1},
+      {130000000, 1, 1, 0, 2, 1},
+      {130000001, 1, 1, 0, 2, 1},
+      {FREQUENCY_THRESHOLD, 1, 1, 0, 2, 1},
+      {FREQUENCY_THRESHOLD + 1, 3, 5, 5, 2, 2},
+      {588000000, 3, 5, 5, 2, 2},
+      {588000001, 3, 5, 5, 2, 2},
+      {3 * FREQUENCY_THRESHOLD, 3, 5, 5, 2, 2},
+      {3 * FREQUENCY_THRESHOLD + 1, 5, 7, 5, 2, 2},
+      {5 * FREQUENCY_THRESHOLD, 5, 7, 5, 2, 2},
+      // Same divider, but both outputs must switch from 6 to 8 mA here.
+      {5 * FREQUENCY_THRESHOLD + 1, 7, 9, 40, 3, 3},
+      {7 * FREQUENCY_THRESHOLD, 7, 9, 40, 3, 3},
+      {7 * FREQUENCY_THRESHOLD + 1, 9, 11, 50, 3, 3},
+      {FREQUENCY_MAX, 9, 11, 50, 3, 3},
+  };
+  // Drive register encodings above: 0=2 mA, 1=4 mA, 2=6 mA, 3=8 mA.
+  // Exercise upward and downward transitions, including asymmetric RF/LO drive.
+  for (unsigned pass = 0; pass < 2; pass++) {
+    for (unsigned i = 0; i < ARRAY_COUNT(cases); i++) {
+      unsigned n = pass == 0 ? i : ARRAY_COUNT(cases) - 1 - i;
+      check_frequency(cases[n].frequency, cases[n].harmonic, cases[n].offset_harmonic,
+                      cases[n].gain, cases[n].drive, cases[n].lo_drive);
+      if (cases[n].frequency == 130000000)
+        assert(fabs(ratio(SI5351_REG_PLL_A) - 40.0) < 0.0001);
+      if (cases[n].frequency == 130000001)
+        assert((registers[SI5351_REG_42_MULTISYNTH0 + 2] & SI5351_DIVBY4) == SI5351_DIVBY4);
+    }
+  }
 
   // Switching from an older, longer band table must not reuse its cached index.
   si5351_set_band_mode(SI5351_BAND_SI5351);
   si5351_set_frequency(FREQUENCY_MAX, SI5351_CLK_DRIVE_STRENGTH_AUTO);
   unsigned before = writes;
   si5351_set_band_mode(SI5351_BAND_ZEETK);
-  check_frequency(FREQUENCY_MAX, 9, 11, 50, SI5351_CLK_DRIVE_STRENGTH_8MA);
+  check_frequency(FREQUENCY_MAX, 9, 11, 50, 3, 3);
   assert(writes > before);
 
   // At the same fundamental frequency, changing profiles must update gain/drive.
@@ -98,7 +118,13 @@ int main(void) {
   si5351_set_frequency(200000000, SI5351_CLK_DRIVE_STRENGTH_AUTO);
   assert(left_gain == 0);
   si5351_set_band_mode(SI5351_BAND_ZEETK);
-  check_frequency(200000000, 1, 1, 5, SI5351_CLK_DRIVE_STRENGTH_6MA);
+  check_frequency(200000000, 1, 1, 0, 2, 1);
+
+  si5351_set_band_mode(SI5351_BAND_SWC5351);
+  si5351_set_frequency(500000000, SI5351_CLK_DRIVE_STRENGTH_AUTO);
+  assert(left_gain != 5);
+  si5351_set_band_mode(SI5351_BAND_ZEETK);
+  check_frequency(500000000, 3, 5, 5, 2, 2);
 
   // Invalid saved modes fall back to the original profile without indexing past it.
   si5351_set_band_mode(UINT16_MAX);
