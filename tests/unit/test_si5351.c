@@ -68,6 +68,10 @@ static void check_frequency(uint32_t frequency, unsigned harmonic,
 }
 
 int main(void) {
+  // Runtime restores config before initializing the generator on cold boot.
+  config._band_mode = SI5351_BAND_ZEETK;
+  si5351_init();
+  check_frequency(500000000, 3, 5, 5, 2, 2);
   si5351_set_band_mode(SI5351_BAND_ZEETK);
   static const struct {
     uint32_t frequency;

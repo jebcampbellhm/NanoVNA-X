@@ -358,6 +358,7 @@ ULIBS = -lm
 
 # Host-side unit tests  
 HOST_CC ?= gcc
+HOST_PYTHON ?= python3
 HOST_CFLAGS ?= -std=c11 -Wall -Wextra -Wpedantic -O2 -fno-inline-small-functions -ggdb -fomit-frame-pointer -falign-functions=16 -ffast-math -fsingle-precision-constant -fmerge-constants
 HOST_LDFLAGS ?= -lm
 
@@ -422,6 +423,7 @@ test: tests
 		echo "[RUN] $$suite"; \
 		"$$suite"; \
 	done
+	HOST_CC="$(HOST_CC)" $(HOST_PYTHON) tests/unit/test_startup_timing.py
 
 # Define ChibiOS sources and objects (handle potential ./ prefix)
 CHIBIOS_SOURCES := $(filter third_party/ChibiOS/% ./third_party/ChibiOS/%, $(CSRC))

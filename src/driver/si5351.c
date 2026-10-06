@@ -117,7 +117,7 @@ bool si5351_bulk_read(uint8_t reg, uint8_t* buf, int len) {
 static void si5351_wait_pll_lock(void)
 {
   uint8_t status = 0xFF;  // Initialize to worst case to force at least one read
-  systime_t timeout = chVTGetSystemTimeX() + MS2ST(100); // Set timeout to 100ms
+  systime_t start = chVTGetSystemTimeX(); // Set timeout to 100ms
   
   // Wait for both PLLA and PLLB to lock (bits 5 and 6 of register 0 should be 0)
   do {
@@ -128,7 +128,7 @@ static void si5351_wait_pll_lock(void)
     }
     // Small delay to avoid excessive bus traffic
     chThdSleepMilliseconds(1);
-  } while (chVTGetSystemTimeX() < timeout);
+  } while ((systime_t)(chVTGetSystemTimeX() - start) < MS2ST(100));
   
   // Add minimal stabilization time even if lock was detected earlier
   // This ensures the PLL outputs are fully settled before proceeding

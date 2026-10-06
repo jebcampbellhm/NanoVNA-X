@@ -755,18 +755,13 @@ int runtime_main(void) {
 
   const PlatformDrivers* drivers = platform_get_drivers();
   if (drivers != NULL) {
-    if (drivers->init) {
-      drivers->init();
-    }
+    // platform_init() already initialized the board peripherals.
     // Display initialization moved to end of startup sequence to match NanoVNA-D reference
     // if (drivers->display && drivers->display->init) {
     //   drivers->display->init();
     // }
     if (drivers->adc && drivers->adc->init) {
       drivers->adc->init();
-    }
-    if (drivers->generator && drivers->generator->init) {
-      drivers->generator->init();
     }
     if (drivers->storage && drivers->storage->init) {
       drivers->storage->init();
@@ -799,6 +794,11 @@ int runtime_main(void) {
    * restore config and calibration 0 slot from flash memory, also if need use backup data
    */
   state_manager_init();
+
+  // Select the saved RF profile and crystal calibration before starting codec clocks.
+  if (drivers != NULL && drivers->generator && drivers->generator->init) {
+    drivers->generator->init();
+  }
 
 #ifdef USE_VARIABLE_OFFSET
   si5351_set_frequency_offset(IF_OFFSET);

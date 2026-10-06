@@ -18,6 +18,9 @@ functions without requiring any STM32 hardware.
   - `test_si5351.c`: production RF driver with a fake I2C register bank; verifies
     ZeeTK frequency generation from 600 Hz through harmonic transitions to
     2.7 GHz, codec clock/gain, output drive, and safe profile switching
+  - `test_startup_timing.py`: compiles the production timing functions with a
+    simulated clock; checks capture and PLL waits across rollover, sweep-start
+    delay scope, ADC startup timeout, and configuration/generator startup order
 - `tests/stubs/` provides lightweight stand-ins for headers that normally come
   from ChibiOS/HAL so that host builds can compile firmware files.
 
@@ -27,8 +30,9 @@ functions without requiring any STM32 hardware.
 make test
 ```
 
-The `test` target builds every suite into `build/tests/*.out` and executes them.
-Failures are reported with descriptive messages.
+The `test` target builds and executes the C suites, then runs the startup/timing
+harness using Python 3 and the host C compiler. Override `HOST_PYTHON` or
+`HOST_CC` if needed. Failures are reported with descriptive messages.
 
 ## Extending
 

@@ -34,7 +34,8 @@
 /*
  * DMA/I2S capture state
  */
-static systime_t ready_time = 0;
+static systime_t capture_start = 0;
+static systime_t capture_delay = 0;
 static volatile uint16_t wait_count = 0;
 static alignas(8) audio_sample_t rx_buffer[AUDIO_BUFFER_LEN * 2];
 
@@ -245,7 +246,7 @@ static void duplicate_buffer_to_dump(audio_sample_t* p, size_t n) {
 
 void i2s_lld_serve_rx_interrupt(uint32_t flags) {
   uint16_t wait = wait_count;
-  if (wait == 0U || chVTGetSystemTimeX() < ready_time) {
+  if (wait == 0U || (systime_t)(chVTGetSystemTimeX() - capture_start) < capture_delay) {
     return;
   }
   audio_sample_t* p = (flags & STM32_DMA_ISR_TCIF) ? rx_buffer + AUDIO_BUFFER_LEN : rx_buffer;
@@ -380,8 +381,12 @@ bool sweep_service_snapshot_release(const sweep_service_snapshot_t* snapshot) {
 }
 
 void sweep_service_start_capture(systime_t delay_ticks) {
-  ready_time = chVTGetSystemTimeX() + delay_ticks;
+  // Publish the timer pair and arm capture atomically with respect to DMA IRQs.
+  osalSysLock();
+  capture_start = chVTGetSystemTimeX();
+  capture_delay = delay_ticks;
   wait_count = config._bandwidth + 2U;
+  osalSysUnlock();
 }
 
 bool sweep_service_wait_for_capture(void) {
@@ -598,7 +603,7 @@ static void fsm_setup_freq(rf_fsm_context_t* ctx) {
   }
   ctx->total_cycles = extra_cycles + 1U;
   ctx->current_cycle = 0;
-  ctx->st_delay = DELAY_SWEEP_START; 
+  ctx->st_delay = p_sweep == 0U ? DELAY_SWEEP_START : 0;
   ctx->state = RF_STATE_SETUP_MEASURE;
 }
 
