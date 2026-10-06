@@ -367,7 +367,7 @@ TEST_SUITES := $(TEST_BUILD_DIR)/test_common $(TEST_BUILD_DIR)/test_vna_math \
                $(TEST_BUILD_DIR)/test_legacy_measure $(TEST_BUILD_DIR)/test_event_bus \
                $(TEST_BUILD_DIR)/test_scheduler $(TEST_BUILD_DIR)/test_measurement_engine \
                $(TEST_BUILD_DIR)/test_shell_service $(TEST_BUILD_DIR)/test_display_presenter \
-               $(TEST_BUILD_DIR)/test_accuracy_analysis
+               $(TEST_BUILD_DIR)/test_accuracy_analysis $(TEST_BUILD_DIR)/test_si5351
 
 $(TEST_BUILD_DIR):
 	@mkdir -p $@
@@ -408,6 +408,10 @@ $(TEST_BUILD_DIR)/test_display_presenter: tests/unit/test_display_presenter.c \
 
 $(TEST_BUILD_DIR)/test_accuracy_analysis: tests/unit/test_accuracy_analysis.c src/processing/vna_math.c | $(TEST_BUILD_DIR)
 	$(HOST_CC) $(HOST_CFLAGS) -DNANOVNA_HOST_TEST -Itests/stubs -Iinclude -Isrc -o $@ $^ $(HOST_LDFLAGS)
+
+$(TEST_BUILD_DIR)/test_si5351: tests/unit/test_si5351.c src/driver/si5351.c \
+        include/driver/si5351.h tests/stubs/si5351/nanovna.h | $(TEST_BUILD_DIR)
+	$(HOST_CC) $(HOST_CFLAGS) -Itests/stubs/si5351 -Itests/stubs -Iinclude -Isrc -o $@ $(filter %.c,$^) $(HOST_LDFLAGS)
 
 .PHONY: test tests
 tests: $(TEST_SUITES)

@@ -15,6 +15,9 @@ functions without requiring any STM32 hardware.
   - `test_measurement_engine.c`: RF engine state machine, event publication, and sweep orchestration
   - `test_shell_service.c`: CLI parser/buffer handling plus deferred command queue + event bus glue
   - `test_display_presenter.c`: presenter wrappers that forward drawing calls to the active API
+  - `test_si5351.c`: production RF driver with a fake I2C register bank; verifies
+    ZeeTK frequency generation from 600 Hz through harmonic transitions to
+    2.7 GHz, codec clock/gain, output drive, and safe profile switching
 - `tests/stubs/` provides lightweight stand-ins for headers that normally come
   from ChibiOS/HAL so that host builds can compile firmware files.
 

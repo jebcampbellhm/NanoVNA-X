@@ -110,7 +110,12 @@ This menu consolidates DSP helpers and measurement assistants.
   * `FLIP DISPLAY` *(with `__FLIP_DISPLAY__`)* — mirror the LCD.
   * `DFU` *(with `__DFU_SOFTWARE_MODE__`)* — soft boots into the DFU ROM (path: System -> Device -> DFU).
   * `MORE` -> exposes manufacturing tools:
-    * `MODE` — select the Si5351-compatible synthesiser variant.
+    * `MODE` — select the RF hardware profile: `Direct` (Si5351), `Div` (MS5351),
+      `Multi` (SWC5351 with the original mixer), or `ZeeTK` (NE602A mixer with
+      SJWCH5351, NanoVNA-H rev3.7 / NanoVNA-H4 rev4.4, labelled ZK).
+      On the newer ZeeTK boards, select `ZeeTK`, use `SAVE CONFIG`, and perform
+      a new calibration with `CAL POWER` set to `AUTO`. Existing firmware defaults
+      and saved profile numbers are preserved; the board is not auto-detected.
     * `SEPARATOR` *(with `__DIGIT_SEPARATOR__`)* — choose decimal/comma formatting.
     * `USB DEVICE UID` *(with `__USB_UID__`)* — toggle use of the MCU unique ID for USB enumeration.
     * `CLEAR CONFIG` -> contains `CLEAR ALL AND RESET`, which wipes flash-stored configuration.

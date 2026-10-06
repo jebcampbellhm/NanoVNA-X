@@ -69,7 +69,7 @@ For detailed 12-point calibration instructions, see the documentation:
   - FLIP DISPLAY `[__FLIP_DISPLAY__]`
   - DFU `[__DFU_SOFTWARE_MODE__]`
   - MORE
-    - MODE (Si5351 / MS5351 / SWC5351 selection)
+    - MODE (Direct: Si5351 / Div: MS5351 / Multi: SWC5351 / ZeeTK: NE602A + SJWCH5351)
     - SEPARATOR `[__DIGIT_SEPARATOR__]`
     - USB DEVICE UID `[__USB_UID__]`
     - CLEAR CONFIG -> CLEAR ALL AND RESET

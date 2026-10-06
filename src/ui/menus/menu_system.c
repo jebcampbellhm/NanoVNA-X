@@ -330,11 +330,11 @@ static UI_FUNCTION_ADV_CALLBACK(menu_brightness_acb) {
 #endif
 
 // Band Mode Logic
-// Band Mode Logic
 static const option_desc_t band_mode_options[] = {
-    {0, "Direct", BUTTON_ICON_NONE},
-    {1, "Div", BUTTON_ICON_NONE},
-    {2, "Multi", BUTTON_ICON_NONE},
+    {SI5351_BAND_SI5351, "Direct", BUTTON_ICON_NONE},
+    {SI5351_BAND_MS5351, "Div", BUTTON_ICON_NONE},
+    {SI5351_BAND_SWC5351, "Multi", BUTTON_ICON_NONE},
+    {SI5351_BAND_ZEETK, "ZeeTK", BUTTON_ICON_NONE},
 };
 
 
